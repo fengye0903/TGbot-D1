@@ -91,15 +91,16 @@ function toBoolText(value, defaultValue = true) {
 }
 
 function formatTimestamp(timestamp) {
-  if (!timestamp) return '[未知时间]';
+  if (!timestamp) return '[]';
 
   const date = new Date(Number(timestamp) * 1000);
 
   if (Number.isNaN(date.getTime())) {
-    return '[未知时间]';
+    return '[]';
   }
 
   return date.toLocaleString('zh-CN', {
+    timeZone: 'Asia/Shanghai',
     hour12: false
   });
 }
