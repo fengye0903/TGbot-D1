@@ -1885,16 +1885,14 @@ if (user.topic_id) {
       env
     );
 
-    try {
-await ensureUserInfoCard(
-  message,
-  user,
-  topicId,
-  env
-);
+    await ensureUserInfoCard(
+      message,
+      user,
+      topicId,
+      env
+    );
 
-return topicId;
-
+    return topicId;
   } catch (error) {
     await dbUserUpdate(
       userId,
@@ -3772,6 +3770,22 @@ if (parsed.command === 'card') {
 
     // 指定用户 ID 时，将当前话题重新绑定给该用户。
     if (parsed.argument) {
+      await env.TG_BOT_DB.prepare(`
+        UPDATE users
+        SET
+          topic_id = NULL,
+          info_card_message_id = NULL,
+          topic_creating = 0,
+          topic_lock_at = NULL,
+          updated_at = ?
+        WHERE topic_id = ?
+          AND user_id <> ?
+      `).bind(
+        Math.floor(Date.now() / 1000),
+        topicId,
+        String(userId)
+      ).run();
+
       await dbUserUpdate(
         userId,
         {
