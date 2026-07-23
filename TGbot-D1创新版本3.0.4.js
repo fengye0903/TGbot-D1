@@ -1344,18 +1344,21 @@ ${firstTimeText}
   };
 }
 
-function getProfileUrl(userId, usernameRaw) {
+function getProfileUrl(usernameRaw) {
+  const username = String(
+    usernameRaw || ''
+  ).trim();
+
   if (
-    usernameRaw &&
-    /^[A-Za-z0-9_]{5,32}$/.test(usernameRaw)
+    !/^[A-Za-z0-9_]{5,32}$/.test(username)
   ) {
-    return (
-      `https://t.me/` +
-      encodeURIComponent(usernameRaw)
-    );
+    return null;
   }
 
-  return `tg://user?id=${userId}`;
+  return (
+    `https://t.me/` +
+    encodeURIComponent(username)
+  );
 }
 
 function getInfoCardButtons(
@@ -1364,48 +1367,62 @@ function getInfoCardButtons(
   isMuted,
   usernameRaw = ''
 ) {
-  return {
-    inline_keyboard: [
-      [
-        {
-          text: isBlocked
-            ? '✅ 解除屏蔽'
-            : '🚫 屏蔽用户',
-          callback_data:
-            `${isBlocked ? 'unblock' : 'block'}:` +
-            `${userId}`
-        },
-        {
-          text: isMuted
-            ? '🔔 恢复通知'
-            : '🔕 静音通知',
-          callback_data:
-            `${isMuted ? 'unmute' : 'mute'}:` +
-            `${userId}`
-        }
-      ],
-      [
-        {
-          text: '📌 置顶资料卡',
-          callback_data: `pin_card:${userId}`
-        },
-        {
-          text: '🔄 刷新资料卡',
-          callback_data: `refresh_card:${userId}`
-        }
-      ],
-      [
-        {
-          text: '👤 查看资料',
-          url: getProfileUrl(
-            userId,
-            usernameRaw
-          )
-        }
-      ]
+  const rows = [
+    [
+      {
+        text: isBlocked
+          ? '✅ 解除屏蔽'
+          : '🚫 屏蔽用户',
+        callback_data:
+          `${isBlocked ? 'unblock' : 'block'}:` +
+          `${userId}`
+      },
+      {
+        text: isMuted
+          ? '🔔 恢复通知'
+          : '🔕 静音通知',
+        callback_data:
+          `${isMuted ? 'unmute' : 'mute'}:` +
+          `${userId}`
+      }
+    ],
+    [
+      {
+        text: '📌 置顶资料卡',
+        callback_data: `pin_card:${userId}`
+      },
+      {
+        text: '🔄 刷新资料卡',
+        callback_data:
+          `refresh_card:${userId}`
+      }
     ]
+  ];
+
+  const profileUrl =
+    getProfileUrl(usernameRaw);
+
+  /*
+   * 只有用户具有有效公开用户名时，
+   * 才显示“查看资料”按钮。
+   *
+   * 不再使用 tg://user?id=... 作为按钮链接，
+   * 避免 BUTTON_USER_PRIVACY_RESTRICTED。
+   */
+  if (profileUrl) {
+    rows.push([
+      {
+        text: '👤 查看资料',
+        url: profileUrl
+      }
+    ]);
+  }
+
+  return {
+    inline_keyboard: rows
   };
 }
+
 
 function buildCardSignature(payload) {
   return JSON.stringify({
