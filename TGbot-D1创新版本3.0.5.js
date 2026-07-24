@@ -131,6 +131,13 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function isMessageNotModifiedError(error) {
+  return String(error?.message || error)
+    .toLowerCase()
+    .includes('message is not modified');
+}
+
+
 function toBoolText(value, defaultValue = true) {
   if (typeof value !== 'string') return defaultValue;
   return value.toLowerCase() === 'true';
@@ -1481,24 +1488,36 @@ async function refreshUserInfoCard(
     };
   }
 
-  await telegramApi(
-    env.BOT_TOKEN,
-    'editMessageText',
-    {
-      chat_id: env.ADMIN_GROUP_ID,
-      message_id: Number(
-        user.info_card_message_id
-      ),
-      text: payload.infoCard,
-      parse_mode: 'HTML',
-      reply_markup: getInfoCardButtons(
-        userId,
-        user.is_blocked,
-        user.is_muted,
-        payload.usernameRaw
-      )
+    try {
+    await telegramApi(
+      env.BOT_TOKEN,
+      'editMessageText',
+      {
+        chat_id: env.ADMIN_GROUP_ID,
+        message_id: Number(
+          user.info_card_message_id
+        ),
+        text: payload.infoCard,
+        parse_mode: 'HTML',
+        reply_markup: getInfoCardButtons(
+          userId,
+          user.is_blocked,
+          user.is_muted,
+          payload.usernameRaw
+        )
+      }
+    );
+  } catch (error) {
+    if (isMessageNotModifiedError(error)) {
+      return {
+        updated: false,
+        reason: 'not_modified'
+      };
     }
-  );
+
+    throw error;
+  }
+
 
   await dbUserUpdate(
     userId,
@@ -4966,12 +4985,16 @@ async function handleUserCardCallback(
 
       let tip = '✅ 资料卡已刷新。';
 
-      if (
-        !result.updated &&
-        result.reason === 'missing_card'
-      ) {
-        tip = '⚠️ 找不到资料卡消息。';
+      if (!result.updated) {
+        if (result.reason === 'missing_card') {
+          tip = '⚠️ 找不到资料卡消息。';
+        } else if (
+          result.reason === 'not_modified'
+        ) {
+          tip = '✅ 资料卡已是最新，无需刷新。';
+        }
       }
+
 
       await answerCallback(
         callbackQuery.id,
